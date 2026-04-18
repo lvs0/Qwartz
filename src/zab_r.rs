@@ -68,7 +68,7 @@ impl ZABAdaptive {
         hasher.update(b"ZAB-R-Evolution");
 
         self.context.zeroize();
-        let result = hasher.finalize();
+        let result: [u8; 32] = hasher.finalize().into();
         self.context = Zeroizing::new(result);
     }
 

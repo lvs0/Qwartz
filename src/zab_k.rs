@@ -38,7 +38,8 @@ pub struct ZABKey {
     /// Key material
     #[zeroize(skip)]
     key_material: Zeroizing<Vec<u8>>,
-    /// Key type
+    /// Key type (not sensitive, skip zeroization)
+    #[zeroize(skip)]
     key_type: KeyType,
     /// Auto-mutation counter
     mutations: u64,
@@ -106,13 +107,12 @@ impl ZABKey {
         let nonce = Nonce::from_slice(&nonce_bytes);
 
         let cipher = self.get_cipher()?;
-
-        match self.ciphertext {
-            Ok(ct) => cipher
-                .encrypt(nonce, plaintext)
-                .map_err(|e| QwartzError::EncryptionFailed(e.to_string())),
-            Err(_) => Err(QwartzError::EncryptionFailed("Cipher init failed".into())),
-        }
+        let mut result = nonce_bytes.to_vec();
+        let ciphertext = cipher
+            .encrypt(nonce, plaintext)
+            .map_err(|e| QwartzError::EncryptionFailed(e.to_string()))?;
+        result.extend(ciphertext);
+        Ok(result)
     }
 
     /// Decrypt data

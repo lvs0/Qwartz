@@ -1,6 +1,6 @@
 //! Entropy Engine - Hardware-level randomness generation
 
-use crate::{QwartzError, ZABVersion};
+use crate::QwartzError;
 use std::time::{Duration, Instant};
 use zeroize::Zeroizing;
 
@@ -49,23 +49,26 @@ impl EntropyEngine {
         accumulator
     }
 
-    /// Generate entropy from software fingerprint
+    /// Generate entropy from software fingerprint (no nightly cfg attributes)
     pub fn software_fingerprint() -> [u8; 32] {
         let mut hash = [0u8; 32];
 
-        // OS type (simplified)
-        #[cfg(target_os = "linux")]
-        hash[0] = 0x01;
-        #[cfg(target_os = "macos")]
-        hash[0] = 0x02;
-        #[cfg(target_os = "windows")]
-        hash[0] = 0x03;
+        // OS type via std
+        let os_byte: u8 = match std::env::consts::OS {
+            "linux" => 0x01,
+            "macos" => 0x02,
+            "windows" => 0x03,
+            _ => 0xFF,
+        };
+        hash[0] = os_byte;
 
-        // Architecture
-        #[cfg(target_arch = "x86_64")]
-        hash[1] = 0x01;
-        #[cfg(target_arch = "aarch64")]
-        hash[1] = 0x02;
+        // Architecture via std
+        let arch_byte: u8 = match std::env::consts::ARCH {
+            "x86_64" => 0x01,
+            "aarch64" => 0x02,
+            _ => 0xFF,
+        };
+        hash[1] = arch_byte;
 
         // Timestamp as additional entropy
         let now = std::time::SystemTime::now()
@@ -104,7 +107,7 @@ impl EntropyEngine {
             let e = Self::energy_signature();
 
             // Mix using hash function
-            noise[i] = ((t.wrapping_mul(i as u64 + 1)) ^ (e[i] as u64)) as u8;
+            noise[i] = ((t.wrapping_mul(i as u64 + 1)) ^ (e[i & 31] as u64)) as u8;
         }
 
         noise
@@ -114,28 +117,21 @@ impl EntropyEngine {
     pub fn generate_seed() -> Zeroizing<[u8; 64]> {
         let mut seed = Zeroizing::new([0u8; 64]);
 
-        // Mix all entropy sources
+        // Mix all entropy sources via simple XOR folding
         let micro = Self::cpu_micro_timing();
         let software = Self::software_fingerprint();
         let energy = Self::energy_signature();
         let lattice = Self::lattice_noise();
 
-        // First 8 bytes: CPU timing
-        seed[..8].copy_from_slice(&micro.to_le_bytes());
+        // Byte 0-7: CPU micro-timing (8 bytes)
+        seed[0..8].copy_from_slice(&micro.to_le_bytes());
 
-        // Next 32 bytes: Software fingerprint
+        // Byte 8-39: Software fingerprint (32 bytes)
         seed[8..40].copy_from_slice(&software);
 
-        // Next 32 bytes: Energy signature
-        seed[40..72].copy_from_slice(&energy);
-
-        // Last 64 bytes: Lattice noise
-        seed[72..].copy_from_slice(&lattice);
-
-        // Final mixing
-        for i in 0..64 {
-            seed[i] ^= lattice[i % 64];
-            seed[i] = seed[i].wrapping_add(micro as u8);
+        // Byte 40-63: Energy signature + Lattice noise XOR'd
+        for i in 0..24 {
+            seed[40 + i] = energy[i] ^ lattice[i] ^ lattice[i + 32];
         }
 
         seed

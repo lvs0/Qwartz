@@ -2,19 +2,16 @@
 //!
 //! Run with: cargo run -- <command>
 
-use qwartz::{cli::Command, init};
+use qwartz::{init, Command, execute};
 
 fn main() {
-    // Initialize QWARTZ
     if let Err(e) = init() {
         eprintln!("❌ Initialization failed: {}", e);
         std::process::exit(1);
     }
 
-    // Parse and execute command
     let cmd = Command::parse();
-
-    if let Err(e) = cli::execute(cmd) {
+    if let Err(e) = execute(cmd) {
         eprintln!("❌ Error: {}", e);
         std::process::exit(1);
     }

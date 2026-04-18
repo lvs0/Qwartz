@@ -15,6 +15,9 @@ pub use entropy::EntropyEngine;
 pub use zab_r::ZABAdaptive;
 pub use zab_k::ZABKey;
 pub use sync::ZABSync;
+pub use zab_k::KeyType;
+pub use cli::{Command, execute};
+pub const ZAB_VERSION: &str = "ZAB-GenZ-0.1.0";
 
 /// ZAB Mode selection
 #[derive(Debug, Clone, Copy)]
@@ -26,9 +29,6 @@ pub enum ZABMode {
     /// Fusion mode - ZAB-GenZ combination
     Fusion,
 }
-
-/// ZAB Generation Z version
-pub const ZAB_VERSION: &str = "ZAB-GenZ-0.1.0";
 
 /// Initialize QWARTZ
 pub fn init() -> Result<(), QwartzError> {
