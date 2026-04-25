@@ -2,11 +2,11 @@
 name = "qwartz"
 version = "0.1.0"
 edition = "2021"
-description = "R-Labs Next-Generation Cryptographic System"
+description = "Qwartz - Educational/research cryptographic learning tool (NOT for production). Implements ZAB-R AES-256-GCM encryption and ZAB-K key-based encryption."
 authors = ["R-Labs <lvs0@proton.me>"]
 license = "MIT"
 repository = "https://github.com/lvs0/Qwartz"
-keywords = ["cryptography", "post-quantum", "security", "zero-knowledge"]
+keywords = ["cryptography", "education", "learning", "aes-gcm", "shamir"]
 categories = ["cryptography", "security"]
 
 [dependencies]

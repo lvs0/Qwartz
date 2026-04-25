@@ -129,39 +129,50 @@ impl Default for ZABAdaptive {
     }
 }
 
-/// Encrypt using ZAB-R adaptive mode
+/// Encrypt using ZAB-R adaptive mode (AES-256-GCM)
 pub fn encrypt_adaptive(plaintext: &[u8], purpose: &[u8]) -> Result<Vec<u8>, QwartzError> {
+    use aes_gcm::{
+        Aes256Gcm, Key,
+        aead::{Aead, AeadCore, KeyInit, OsRng},
+        Nonce,
+    };
+
     let key_manager = ZABAdaptive::new()?;
     let key = key_manager.derive_key(purpose);
 
-    // Simple XOR encryption with hash-based mixing
-    let mut hasher = Sha3_256::new();
-    hasher.update(&*key);
-    hasher.update(plaintext);
-    let mask = hasher.finalize();
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&*key));
+    let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
 
-    let mut ciphertext = Vec::with_capacity(plaintext.len() + 64);
+    let ciphertext = cipher
+        .encrypt(&nonce, plaintext)
+        .map_err(|_| QwartzError::EncryptionFailed("AES-256-GCM encryption failed".into()))?;
 
-    // Add header: version + evolution
-    ciphertext.extend_from_slice(b"ZAB-R01");
-    ciphertext.extend_from_slice(&key_manager.evolution.to_le_bytes());
+    let mut result = Vec::with_capacity(14 + ciphertext.len());
+    // Header: magic (8) + evolution (8) + nonce (12) = 28 bytes
+    result.extend_from_slice(b"ZAB-R01");
+    result.extend_from_slice(&key_manager.evolution.to_le_bytes());
+    result.extend_from_slice(nonce.as_slice());
+    result.extend_from_slice(&ciphertext);
 
-    // Encrypt
-    for (i, byte) in plaintext.iter().enumerate() {
-        ciphertext.push(byte ^ mask[i % 32]);
-    }
-
-    Ok(ciphertext)
+    Ok(result)
 }
 
-/// Decrypt using ZAB-R adaptive mode
+/// Decrypt using ZAB-R adaptive mode (AES-256-GCM)
 pub fn decrypt_adaptive(ciphertext: &[u8], purpose: &[u8]) -> Result<Vec<u8>, QwartzError> {
-    if ciphertext.len() < 14 || &ciphertext[0..8] != b"ZAB-R01" {
+    use aes_gcm::{
+        Aes256Gcm, Key,
+        aead::{Aead, KeyInit},
+        Nonce,
+    };
+
+    // Header: magic(8) + evolution(8) + nonce(12) = 28 bytes
+    if ciphertext.len() < 28 || &ciphertext[0..8] != b"ZAB-R01" {
         return Err(QwartzError::InvalidKey("Invalid ZAB-R format".into()));
     }
 
     let evolution = u64::from_le_bytes(ciphertext[8..16].try_into().unwrap());
-    let encrypted = &ciphertext[16..];
+    let nonce: [u8; 12] = ciphertext[16..28].try_into().unwrap();
+    let encrypted = &ciphertext[28..];
 
     let mut key_manager = ZABAdaptive::new()?;
 
@@ -171,19 +182,11 @@ pub fn decrypt_adaptive(ciphertext: &[u8], purpose: &[u8]) -> Result<Vec<u8>, Qw
     }
 
     let key = key_manager.derive_key(purpose);
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&*key));
 
-    // Decrypt
-    let mut hasher = Sha3_256::new();
-    hasher.update(&*key);
-    hasher.update(encrypted);
-    let mask = hasher.finalize();
-
-    let mut plaintext = Vec::with_capacity(encrypted.len());
-    for (i, byte) in encrypted.iter().enumerate() {
-        plaintext.push(byte ^ mask[i % 32]);
-    }
-
-    Ok(plaintext)
+    cipher
+        .decrypt(Nonce::from_slice(&nonce), encrypted)
+        .map_err(|_| QwartzError::DecryptionFailed("AES-256-GCM decryption failed".into()))
 }
 
 #[cfg(test)]
