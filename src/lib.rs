@@ -24,7 +24,7 @@ pub const ZAB_VERSION: &str = "ZAB-GenZ-0.1.0";
 pub enum ZABMode {
     /// Adaptive mode - keys generated from environment entropy
     Adaptive,
-    /// Key-based mode - post-quantum hybrid keys
+    /// Key-based mode - educational hybrid keys
     KeyBased,
     /// Fusion mode - ZAB-GenZ combination
     Fusion,

@@ -18,7 +18,7 @@ pub enum KeyType {
     SymmetricAES,
     /// Symmetric key for ChaCha20-Poly1305
     SymmetricChaCha,
-    /// Hybrid post-quantum key
+    /// Hybrid educational key
     HybridPQ,
 }
 

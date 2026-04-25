@@ -269,7 +269,7 @@ EXAMPLES:
 
 MODES:
     adaptive        ZAB-R (environment-based)
-    pq              ZAB-K (post-quantum hybrid)
+    pq              ZAB-K (educational hybrid)
 
 See https://github.com/lvs0/Qwartz for more info.
 "#
